@@ -194,18 +194,22 @@ module Fog
 
         private
 
+        def adapter
+          @authenticator ||
+          if @openstack_auth_uri.path =~ /v1(\.\d+)?/
+            require_relative "./identity/adapters/authenticator_v1"
+            Fog::OpenStackCommon::Authentication::Adapters::AuthenticatorV1
+          else
+            require_relative "./identity/adapters/authenticator_v2"
+            Fog::OpenStackCommon::Authentication::Adapters::AuthenticatorV2
+          end
+        end
+
         def authenticate
           # puts "===== Fog::Identity::OpenStackCommon -> authenticate ====="
           if !@openstack_management_url || @openstack_must_reauthenticate
-            case @openstack_auth_uri.path
-            when /v1(\.\d+)?/
-              Fog::OpenStackCommon::Authenticator.adapter = :authenticator_v1
-            else
-              Fog::OpenStackCommon::Authenticator.adapter = :authenticator_v2
-            end
-
             options = init_auth_options
-            credentials = Fog::OpenStackCommon::Authenticator.adapter.authenticate(options, @connection_options)
+            credentials = adapter.authenticate(options, @connection_options)
             handle_auth_results(credentials)
           else
             @auth_token = @openstack_auth_token
@@ -216,6 +220,7 @@ module Fog
         end
 
         def apply_options(options)
+          @authenticator = options[:authenticator]
 
           @openstack_auth_token = options[:openstack_auth_token]
           # puts "openstack_auth_token: #{@openstack_auth_token}"
